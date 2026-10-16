@@ -162,7 +162,16 @@ function decodeHtmlEntities(text) {
 function cleanMessageText(text) {
   if (!text) return "";
 
-  return String(text)
+  let value = String(text);
+
+  // Remove HTML tags that may remain inside "plain text"
+  // responses from the mail API.
+  value = value.replace(/<[^>]*>/g, " ");
+
+  // Decode common HTML entities.
+  value = decodeHtmlEntities(value);
+
+  value = value
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .replace(/\u0000/g, "")
@@ -171,6 +180,8 @@ function cleanMessageText(text) {
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{4,}/g, "\n\n")
     .trim();
+
+  return value;
 }
 
 function formatReceivedTime(value) {
