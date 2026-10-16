@@ -3,17 +3,14 @@ function findValue(obj, keys) {
 
   for (const key of keys) {
     if (obj[key] !== undefined && obj[key] !== null) {
-      if (typeof obj[key] === "string") return obj[key];
-      if (typeof obj[key] === "object") {
-        return JSON.stringify(obj[key]);
-      }
+      return obj[key];
     }
   }
 
   for (const value of Object.values(obj)) {
     if (value && typeof value === "object") {
       const found = findValue(value, keys);
-      if (found) return found;
+      if (found !== null && found !== undefined) return found;
     }
   }
 
@@ -63,9 +60,53 @@ module.exports = async function handler(req, res) {
     findValue(payload, ["subject", "title"]) ||
     "No subject";
 
-  const text =
-    findValue(payload, ["text", "body", "content", "message"]) ||
-    "No message preview";
+  const uidValue =
+    findValue(payload, ["uid", "messageUid", "message_uid"]);
+
+  const folder =
+    findValue(payload, ["folder", "folderPath", "folder_path"]) ||
+    "INBOX";
+
+  const mailboxResourceId =
+    findValue(payload, ["mailboxResourceId", "mailbox_resource_id"]) ||
+    "ACfb6fa1592fa555fd693dd55ee8d8";
+
+  let text = null;
+
+  if (uidValue) {
+    const uid = Number(uidValue);
+
+    if (Number.isInteger(uid) && uid > 0) {
+      const hostingerUrl =
+        `https://api.mail.hostinger.com/api/v1/mailboxes/` +
+        `${encodeURIComponent(mailboxResourceId)}/folders/` +
+        `${encodeURIComponent(folder)}/messages/` +
+        `${uid}/text`;
+
+      const hostingerResponse = await fetch(hostingerUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${process.env.HOSTINGER_API_TOKEN}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (hostingerResponse.ok) {
+        const hostingerData = await hostingerResponse.json();
+
+        text =
+          hostingerData?.data?.text ||
+          hostingerData?.text ||
+          null;
+      }
+    }
+  }
+
+  if (!text) {
+    text =
+      findValue(payload, ["text", "body", "content", "message"]) ||
+      "No message preview";
+  }
 
   const telegramMessage =
     `🔔 NEW CLIENT EMAIL\n\n` +
